@@ -3,7 +3,6 @@ import {
   Sidebar,
   SidebarContent,
   SidebarHeader,
-  SidebarInset,
   SidebarFooter,
 } from '@/components/ui/sidebar';
 import { Logo } from '@/components/logo';
@@ -16,28 +15,43 @@ import { CategoryChart } from '@/components/dashboard/category-chart';
 import { RecentTransactions } from '@/components/dashboard/recent-transactions';
 import { BudgetStatus } from '@/components/dashboard/budget-status';
 import { AiAdvisor } from '@/components/dashboard/ai-advisor';
-import {
-  getBudgets,
-  getCategories,
-  getTransactions,
-  getSpendingData,
-  getCategorySpending,
-} from '@/lib/data';
-import { useUser } from '@/firebase';
+import { useUser, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Loader2 } from 'lucide-react';
+import { collection, query, orderBy, Timestamp } from 'firebase/firestore';
+import type { Transaction, Budget, Category } from '@/lib/types';
+import { CategorySeeder } from '@/components/dashboard/category-seeder';
 
 export default function DashboardPage() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
+  const firestore = useFirestore();
 
-  // Fetch mock data
-  const transactions = getTransactions();
-  const budgets = getBudgets();
-  const categories = getCategories();
-  const spendingData = getSpendingData();
-  const categorySpending = getCategorySpending();
+  const transactionsQuery = useMemoFirebase(() => 
+    user ? query(collection(firestore, 'users', user.uid, 'expenses'), orderBy('date', 'desc')) : null,
+    [user, firestore]
+  );
+  const budgetsQuery = useMemoFirebase(() =>
+    user ? collection(firestore, 'users', user.uid, 'budgets') : null,
+    [user, firestore]
+  );
+  const categoriesQuery = useMemoFirebase(() => 
+    firestore ? collection(firestore, 'categories') : null, 
+    [firestore]
+  );
+
+  const { data: transactions, isLoading: transactionsLoading } = useCollection<Transaction>(transactionsQuery);
+  const { data: budgets, isLoading: budgetsLoading } = useCollection<Budget>(budgetsQuery);
+  const { data: categories, isLoading: categoriesLoading } = useCollection<Category>(categoriesQuery);
+
+  // Convert Firestore Timestamps to JS Date objects
+  const processedTransactions = useMemo(() => {
+    return transactions?.map(t => ({
+      ...t,
+      date: (t.date as unknown as Timestamp).toDate(),
+    })) || [];
+  }, [transactions]);
 
   useEffect(() => {
     if (!isUserLoading && !user) {
@@ -45,7 +59,50 @@ export default function DashboardPage() {
     }
   }, [isUserLoading, user, router]);
 
-  if (isUserLoading || !user) {
+  const getSpendingData = (trans: Transaction[]) => {
+    if (!trans) return [];
+    const data: { date: string; spending: number | null }[] = [];
+    const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
+    const now = new Date();
+
+    for (let day = 1; day <= daysInMonth; day++) {
+        const date = new Date(now.getFullYear(), now.getMonth(), day);
+        const dailySpending = trans
+            .filter(t => t.date.getDate() === day && t.date.getMonth() === now.getMonth() && t.date.getFullYear() === now.getFullYear())
+            .reduce((sum, t) => sum + t.amount, 0);
+        
+        if (date > now) break;
+
+        data.push({
+            date: date.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }),
+            spending: dailySpending > 0 ? dailySpending : null,
+        });
+    }
+    return data;
+  };
+
+  const getCategorySpending = (trans: Transaction[], cats: Category[]) => {
+      if (!trans || !cats) return [];
+      const categorySpending = cats.map(category => {
+          const total = trans
+              .filter(t => t.categoryId === category.id)
+              .reduce((sum, t) => sum + t.amount, 0);
+          return {
+              name: category.name,
+              value: total,
+              fill: category.color,
+          };
+      }).filter(c => c.value > 0);
+      return categorySpending;
+  }
+
+  const spendingData = getSpendingData(processedTransactions);
+  const categorySpending = getCategorySpending(processedTransactions, categories || []);
+
+
+  const isLoading = isUserLoading || transactionsLoading || budgetsLoading || categoriesLoading;
+
+  if (isLoading || !user) {
     return (
       <div className="flex min-h-screen w-full items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -54,56 +111,58 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="relative min-h-screen">
+    <div className="grid h-screen w-full lg:grid-cols-[280px_1fr]">
+      <CategorySeeder categories={categories || []} />
       <Sidebar>
-        <div className="flex h-full flex-col">
-          <SidebarHeader>
-            <Logo />
-          </SidebarHeader>
-          <SidebarContent>
-            <MainNav />
-          </SidebarContent>
-          <SidebarFooter>
-            <UserNav />
-          </SidebarFooter>
-        </div>
+        <SidebarHeader>
+          <Logo />
+        </SidebarHeader>
+        <SidebarContent>
+          <MainNav />
+        </SidebarContent>
+        <SidebarFooter>
+          <UserNav />
+        </SidebarFooter>
       </Sidebar>
-      <SidebarInset>
-        <DashboardHeader />
-        <main className="space-y-6 p-4 sm:p-6 lg:p-8">
+      <div className="flex flex-col">
+        <DashboardHeader categories={categories || []} />
+        <main className="flex flex-1 flex-col gap-4 overflow-y-auto p-4 lg:gap-6 lg:p-6">
           <Overview
-            transactions={transactions}
-            budgets={budgets}
+            transactions={processedTransactions || []}
+            budgets={budgets || []}
           />
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-7">
             <SpendingChart
-              className="lg:col-span-3"
+              className="lg:col-span-4"
               data={spendingData}
             />
             <CategoryChart
-              className="lg:col-span-2"
+              className="lg:col-span-3"
               data={categorySpending}
-              categories={categories}
+              categories={categories || []}
             />
           </div>
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-7">
             <RecentTransactions
-              className="lg:col-span-3"
-              transactions={transactions}
+              className="lg:col-span-4"
+              transactions={processedTransactions || []}
+              categories={categories || []}
             />
-            <div className="lg:col-span-2 space-y-6">
+            <div className="lg:col-span-3 flex flex-col gap-4">
               <BudgetStatus
-                budgets={budgets}
-                transactions={transactions}
+                budgets={budgets || []}
+                transactions={processedTransactions || []}
+                categories={categories || []}
               />
               <AiAdvisor
-                budgets={budgets}
-                transactions={transactions}
+                budgets={budgets || []}
+                transactions={processedTransactions || []}
+                categories={categories || []}
               />
             </div>
           </div>
         </main>
-      </SidebarInset>
+      </div>
     </div>
   );
 }

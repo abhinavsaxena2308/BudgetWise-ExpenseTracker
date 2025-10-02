@@ -7,13 +7,14 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from '@/components/ui/sidebar';
-import { LayoutDashboard, Target, BarChart2, Settings } from 'lucide-react';
+import { LayoutDashboard, Target, BarChart2, Settings, User } from 'lucide-react';
 
 const links = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/budgets', label: 'Budgets', icon: Target },
   { href: '/reports', label: 'Reports', icon: BarChart2 },
   { href: '/settings', label: 'Settings', icon: Settings },
+  { href: '/profile', label: 'Profile', icon: User },
 ];
 
 export function MainNav() {

@@ -11,31 +11,41 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { AddExpenseForm } from './add-expense-form';
+import { UserNav } from '../user-nav';
+import { Category } from '@/lib/types';
+import { useState } from 'react';
 
-export function DashboardHeader() {
+type DashboardHeaderProps = {
+  categories?: Category[];
+};
+
+export function DashboardHeader({ categories = [] }: DashboardHeaderProps) {
+  const [open, setOpen] = useState(false);
+
   return (
-    <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
-      <SidebarTrigger className="md:hidden" />
-      <h1 className="text-xl font-semibold font-headline">Dashboard</h1>
-      <div className="ml-auto flex items-center gap-2">
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button>
-              <PlusCircle />
-              <span>Add Expense</span>
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Add New Expense</DialogTitle>
-              <DialogDescription>
-                Enter the details of your expense. Click save when you're done.
-              </DialogDescription>
-            </DialogHeader>
-            <AddExpenseForm />
-          </DialogContent>
-        </Dialog>
+    <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-6">
+      <SidebarTrigger className="lg:hidden" />
+      <div className="w-full flex-1">
+        {/* You can add a search bar here if needed */}
       </div>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
+          <Button size="sm">
+            <PlusCircle className="mr-2 h-4 w-4" />
+            <span>Add Expense</span>
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Add New Expense</DialogTitle>
+            <DialogDescription>
+              Enter the details of your expense. Click save when you're done.
+            </DialogDescription>
+          </DialogHeader>
+          <AddExpenseForm categories={categories} setOpen={setOpen} />
+        </DialogContent>
+      </Dialog>
+      <UserNav />
     </header>
   );
 }

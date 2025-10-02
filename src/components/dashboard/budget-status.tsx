@@ -6,17 +6,16 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { getCategories } from '@/lib/data';
-import type { Budget, Transaction } from '@/lib/types';
+import type { Budget, Transaction, Category } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 type BudgetStatusProps = {
   budgets: Budget[];
   transactions: Transaction[];
+  categories: Category[];
 };
 
-export function BudgetStatus({ budgets, transactions }: BudgetStatusProps) {
-  const categories = getCategories();
+export function BudgetStatus({ budgets, transactions, categories }: BudgetStatusProps) {
   const categoryMap = new Map(categories.map((cat) => [cat.id, cat]));
 
   const budgetData = budgets.map((budget) => {
@@ -24,7 +23,7 @@ export function BudgetStatus({ budgets, transactions }: BudgetStatusProps) {
     const spent = transactions
       .filter((t) => t.categoryId === budget.categoryId)
       .reduce((sum, t) => sum + t.amount, 0);
-    const progress = (spent / budget.amount) * 100;
+    const progress = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
     return {
       ...budget,
       categoryName: category?.name || 'Unknown',
@@ -35,9 +34,9 @@ export function BudgetStatus({ budgets, transactions }: BudgetStatusProps) {
   });
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-IN', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'INR',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount);
@@ -50,22 +49,26 @@ export function BudgetStatus({ budgets, transactions }: BudgetStatusProps) {
         <CardDescription>Your spending progress for each category.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {budgetData.map((budget) => (
-          <div key={budget.id}>
-            <div className="mb-1 flex justify-between text-sm">
-              <span className="font-medium">{budget.categoryName}</span>
-              <span
-                className={cn(
-                  'text-muted-foreground',
-                  budget.isOver && 'font-bold text-destructive'
-                )}
-              >
-                {formatCurrency(budget.spent)} / {formatCurrency(budget.amount)}
-              </span>
+        {budgetData.length > 0 ? (
+          budgetData.map((budget) => (
+            <div key={budget.id}>
+              <div className="mb-1 flex justify-between text-sm">
+                <span className="font-medium">{budget.categoryName}</span>
+                <span
+                  className={cn(
+                    'text-muted-foreground',
+                    budget.isOver && 'font-bold text-destructive'
+                  )}
+                >
+                  {formatCurrency(budget.spent)} / {formatCurrency(budget.amount)}
+                </span>
+              </div>
+              <Progress value={budget.progress} className={cn(budget.isOver && '[&>div]:bg-destructive')} />
             </div>
-            <Progress value={budget.progress} className={cn(budget.isOver && '[&>div]:bg-destructive')} />
-          </div>
-        ))}
+          ))
+        ) : (
+          <p className="text-center text-muted-foreground">No budgets set yet.</p>
+        )}
       </CardContent>
     </Card>
   );

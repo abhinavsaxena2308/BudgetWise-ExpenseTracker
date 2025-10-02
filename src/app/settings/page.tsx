@@ -2,7 +2,6 @@ import {
   Sidebar,
   SidebarContent,
   SidebarHeader,
-  SidebarInset,
   SidebarFooter,
 } from '@/components/ui/sidebar';
 import { Logo } from '@/components/logo';
@@ -12,27 +11,25 @@ import { DashboardHeader } from '@/components/dashboard/header';
 
 export default function SettingsPage() {
   return (
-    <div className="relative min-h-screen">
+    <div className="grid h-screen w-full lg:grid-cols-[280px_1fr]">
       <Sidebar>
-        <div className="flex h-full flex-col">
-          <SidebarHeader>
-            <Logo />
-          </SidebarHeader>
-          <SidebarContent>
-            <MainNav />
-          </SidebarContent>
-          <SidebarFooter>
-            <UserNav />
-          </SidebarFooter>
-        </div>
+        <SidebarHeader>
+          <Logo />
+        </SidebarHeader>
+        <SidebarContent>
+          <MainNav />
+        </SidebarContent>
+        <SidebarFooter>
+          <UserNav />
+        </SidebarFooter>
       </Sidebar>
-      <SidebarInset>
+      <div className="flex flex-col">
         <DashboardHeader />
-        <main className="space-y-6 p-4 sm:p-6 lg:p-8">
+        <main className="flex flex-1 flex-col gap-4 overflow-y-auto p-4 lg:gap-6 lg:p-6">
           <h1 className="text-2xl font-semibold">Settings</h1>
           <p>Manage your account settings here.</p>
         </main>
-      </SidebarInset>
+      </div>
     </div>
   );
 }

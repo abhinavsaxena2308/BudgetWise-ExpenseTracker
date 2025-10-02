@@ -11,7 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Sparkles } from 'lucide-react';
-import type { Budget, Transaction } from '@/lib/types';
+import type { Budget, Transaction, Category } from '@/lib/types';
 import { getAIAdvice } from '@/actions/ai-actions';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -24,6 +24,7 @@ import {
 type AIAdvisorProps = {
   budgets: Budget[];
   transactions: Transaction[];
+  categories: Category[];
 };
 
 type AISuggestion = {
@@ -31,7 +32,7 @@ type AISuggestion = {
   overallAnalysis: string;
 };
 
-export function AiAdvisor({ budgets, transactions }: AIAdvisorProps) {
+export function AiAdvisor({ budgets, transactions, categories }: AIAdvisorProps) {
   const [isPending, startTransition] = useTransition();
   const [financialGoals, setFinancialGoals] = useState('');
   const [advice, setAdvice] = useState<AISuggestion | null>(null);
@@ -48,14 +49,13 @@ export function AiAdvisor({ budgets, transactions }: AIAdvisorProps) {
     }
 
     startTransition(async () => {
+      const categoryMap = new Map(categories.map((c) => [c.id, c.name]));
       const spendingData = budgets.map((budget) => {
         const spent = transactions
           .filter((t) => t.categoryId === budget.categoryId)
           .reduce((sum, t) => sum + t.amount, 0);
         return {
-          category:
-            transactions.find((t) => t.categoryId === budget.categoryId)
-              ?.description || 'Unknown',
+          category: categoryMap.get(budget.categoryId) || 'Unknown',
           amount: spent,
           budget: budget.amount,
         };

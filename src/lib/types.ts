@@ -1,4 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
+import { Timestamp } from 'firebase/firestore';
 
 export type Transaction = {
   id: string;
@@ -16,6 +17,9 @@ export type Category = {
 
 export type Budget = {
   id: string;
-  categoryId: string;
+  name: string;
   amount: number;
+  startDate: Timestamp | Date;
+  endDate: Timestamp | Date;
+  userId?: string;
 };

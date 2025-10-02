@@ -66,7 +66,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Budget",
       "type": "object",
-      "description": "Represents a user's budget for a specific category.",
+      "description": "Represents a user's overall budget for a given period.",
       "properties": {
         "id": {
           "type": "string",
@@ -76,13 +76,13 @@
           "type": "string",
           "description": "Reference to User. (Relationship: User 1:N Budget)"
         },
-        "categoryId": {
+        "name": {
           "type": "string",
-          "description": "Reference to Category. (Relationship: Category 1:N Budget)"
+          "description": "A descriptive name for the budget (e.g., 'Monthly Budget')."
         },
         "amount": {
           "type": "number",
-          "description": "The budgeted amount for the category."
+          "description": "The total budgeted amount."
         },
         "startDate": {
           "type": "string",
@@ -98,7 +98,7 @@
       "required": [
         "id",
         "userId",
-        "categoryId",
+        "name",
         "amount",
         "startDate",
         "endDate"
@@ -108,7 +108,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Category",
       "type": "object",
-      "description": "Represents a category for expenses and budgets.",
+      "description": "Represents a category for expenses.",
       "properties": {
         "id": {
           "type": "string",
@@ -133,7 +133,8 @@
   "auth": {
     "providers": [
       "password",
-      "anonymous"
+      "anonymous",
+      "google.com"
     ]
   },
   "firestore": {
@@ -201,7 +202,7 @@
           "schema": {
             "$ref": "#/backend/entities/Category"
           },
-          "description": "Stores categories that can be referenced by expenses and budgets. This allows for the creation of global/default categories.",
+          "description": "Stores categories that can be referenced by expenses. This allows for the creation of global/default categories.",
           "params": [
             {
               "name": "categoryId",
@@ -211,6 +212,6 @@
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to ensure data isolation and security by leveraging path-based ownership for user-specific data. Each user's data (budgets, expenses) resides under their dedicated path (`/users/{userId}`). This approach provides Authorization Independence because access control is directly tied to the user's ID in the path, eliminating the need for `get()` calls to parent documents for authorization. Each collection enforces rules based on `request.auth.uid` which allows us to control access and apply security rules in a simple and effective manner. The use of the path `/categories` allows for categories that can be referenced by the expenses and budgets, and can allow for the creation of global/default categories to exist in one place."
+    "reasoning": "The Firestore structure is designed to ensure data isolation and security by leveraging path-based ownership for user-specific data. Each user's data (budgets, expenses) resides under their dedicated path (`/users/{userId}`). This approach provides Authorization Independence because access control is directly tied to the user's ID in the path, eliminating the need for `get()` calls to parent documents for authorization. Each collection enforces rules based on `request.auth.uid` which allows us to control access and apply security rules in a simple and effective manner. The use of the path `/categories` allows for categories that can be referenced by the expenses, and can allow for the creation of global/default categories to exist in one place."
   }
 }

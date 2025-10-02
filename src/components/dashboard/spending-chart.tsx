@@ -44,7 +44,7 @@ export function SpendingChart({ className, data }: SpendingChartProps) {
       <CardContent>
         <ChartContainer config={chartConfig} className="h-64 w-full">
           <ResponsiveContainer>
-            <BarChart data={data} margin={{ top: 20, right: 20, left: -10, bottom: 0 }}>
+            <BarChart data={data} margin={{ top: 20, right: 20, left: -20, bottom: 0 }}>
               <XAxis
                 dataKey="date"
                 tickLine={false}
@@ -60,7 +60,7 @@ export function SpendingChart({ className, data }: SpendingChartProps) {
                 fontSize={12}
                 tickLine={false}
                 axisLine={false}
-                tickFormatter={(value) => `$${value}`}
+                tickFormatter={(value) => `₹${value}`}
               />
               <Tooltip
                 cursor={false}
