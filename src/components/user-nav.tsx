@@ -1,3 +1,4 @@
+'use client';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,9 +12,19 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { CreditCard, LogOut, Settings, User } from 'lucide-react';
+import { useAuth, useUser } from '@/firebase';
+import { useRouter } from 'next/navigation';
 
 export function UserNav() {
+  const { user } = useUser();
+  const auth = useAuth();
+  const router = useRouter();
   const userAvatar = PlaceHolderImages.find((img) => img.id === 'user-avatar');
+
+  const handleLogout = async () => {
+    await auth.signOut();
+    router.push('/login');
+  };
 
   return (
     <DropdownMenu>
@@ -22,21 +33,21 @@ export function UserNav() {
           <Avatar className="h-10 w-10">
             {userAvatar && (
               <AvatarImage
-                src={userAvatar.imageUrl}
-                alt="User avatar"
+                src={user?.photoURL || userAvatar.imageUrl}
+                alt={user?.displayName || 'User avatar'}
                 data-ai-hint={userAvatar.imageHint}
               />
             )}
-            <AvatarFallback>U</AvatarFallback>
+            <AvatarFallback>{user?.email?.[0]?.toUpperCase() || 'U'}</AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">User</p>
+            <p className="text-sm font-medium leading-none">{user?.displayName || 'User'}</p>
             <p className="text-xs leading-none text-muted-foreground">
-              user@example.com
+              {user?.email}
             </p>
           </div>
         </DropdownMenuLabel>
@@ -56,7 +67,7 @@ export function UserNav() {
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem>
+        <DropdownMenuItem onClick={handleLogout}>
           <LogOut />
           <span>Log out</span>
         </DropdownMenuItem>

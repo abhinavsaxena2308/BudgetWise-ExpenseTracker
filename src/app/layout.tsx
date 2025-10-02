@@ -3,6 +3,7 @@ import './globals.css';
 import { cn } from '@/lib/utils';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { Toaster } from '@/components/ui/toaster';
+import { FirebaseClientProvider } from '@/firebase';
 
 export const metadata: Metadata = {
   title: 'BudgetWise',
@@ -29,10 +30,12 @@ export default function RootLayout({
           'min-h-screen bg-background font-body antialiased',
         )}
       >
-        <SidebarProvider>
-          {children}
-          <Toaster />
-        </SidebarProvider>
+        <FirebaseClientProvider>
+          <SidebarProvider>
+            {children}
+            <Toaster />
+          </SidebarProvider>
+        </FirebaseClientProvider>
       </body>
     </html>
   );
