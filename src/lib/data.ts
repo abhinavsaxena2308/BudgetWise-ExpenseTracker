@@ -1,6 +1,6 @@
 import type { Category } from './types';
 
-export const categories: Category[] = [
+export const categories: (Omit<Category, 'id'> & { id: string })[] = [
   { id: 'cat-1', name: 'Food', color: 'hsl(var(--chart-1))' },
   { id: 'cat-2', name: 'Transport', color: 'hsl(var(--chart-2))' },
   { id: 'cat-3', name: 'Housing', color: 'hsl(var(--chart-3))' },
@@ -8,6 +8,3 @@ export const categories: Category[] = [
   { id: 'cat-5', name: 'Entertainment', color: 'hsl(var(--chart-5))' },
   { id: 'cat-6', name: 'Apparel', color: 'hsl(var(--chart-1))' },
 ];
-
-// This file now only exports the default categories.
-// All transactional data will be handled by Firestore.
