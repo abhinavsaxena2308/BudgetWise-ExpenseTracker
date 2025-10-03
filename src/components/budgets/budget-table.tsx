@@ -8,17 +8,25 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Edit } from 'lucide-react';
-import type { Budget } from '@/lib/types';
+import { Edit, Trash2 } from 'lucide-react';
+import type { Budget, Category } from '@/lib/types';
 import { format } from 'date-fns';
-import { Timestamp } from 'firebase/firestore';
 
 type BudgetTableProps = {
   budgets: Budget[];
+  categories: Category[];
   onEdit: (budget: Budget) => void;
+  onDelete: (budgetId: string) => void;
 };
 
-export function BudgetTable({ budgets, onEdit }: BudgetTableProps) {
+export function BudgetTable({
+  budgets,
+  categories,
+  onEdit,
+  onDelete,
+}: BudgetTableProps) {
+  const categoryMap = new Map(categories.map((c) => [c.id, c.name]));
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -26,36 +34,36 @@ export function BudgetTable({ budgets, onEdit }: BudgetTableProps) {
     }).format(amount);
   };
 
-  const formatDate = (date: any) => {
-    if (date instanceof Timestamp) {
-      return format(date.toDate(), 'PPP');
-    }
-    if (date instanceof Date) {
-      return format(date, 'PPP');
-    }
-    return 'N/A';
+  const formatMonth = (month: string) => {
+    if (!month) return ''; // Add a guard for undefined month
+    const [year, monthNum] = month.split('-');
+    const date = new Date(parseInt(year), parseInt(monthNum) - 1);
+    return format(date, 'MMMM yyyy');
   };
+
+  const budgetsWithCategoryNames = budgets.map(budget => ({
+    ...budget,
+    categoryName: categoryMap.get(budget.categoryId) || 'Unknown',
+  }));
 
   return (
     <div className="rounded-lg border">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Name</TableHead>
+            <TableHead>Category</TableHead>
+            <TableHead>Month</TableHead>
             <TableHead>Amount</TableHead>
-            <TableHead>Start Date</TableHead>
-            <TableHead>End Date</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {budgets.length > 0 ? (
-            budgets.map((budget) => (
+          {budgetsWithCategoryNames.length > 0 ? (
+            budgetsWithCategoryNames.map((budget) => (
               <TableRow key={budget.id}>
-                <TableCell className="font-medium">{budget.name}</TableCell>
+                <TableCell className="font-medium">{budget.categoryName}</TableCell>
+                <TableCell>{formatMonth(budget.month)}</TableCell>
                 <TableCell>{formatCurrency(budget.amount)}</TableCell>
-                <TableCell>{formatDate(budget.startDate)}</TableCell>
-                <TableCell>{formatDate(budget.endDate)}</TableCell>
                 <TableCell className="text-right">
                   <Button
                     variant="ghost"
@@ -65,13 +73,22 @@ export function BudgetTable({ budgets, onEdit }: BudgetTableProps) {
                     <Edit className="h-4 w-4" />
                     <span className="sr-only">Edit Budget</span>
                   </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onDelete(budget.id)}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span className="sr-only">Delete Budget</span>
+                  </Button>
                 </TableCell>
               </TableRow>
             ))
           ) : (
             <TableRow>
               <TableCell
-                colSpan={5}
+                colSpan={4}
                 className="text-center text-muted-foreground"
               >
                 No budgets set yet. Add one to get started!

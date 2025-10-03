@@ -8,6 +8,7 @@ import {
 import { Progress } from '@/components/ui/progress';
 import type { Budget, Transaction, Category } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
 
 type BudgetStatusProps = {
   budgets: Budget[];
@@ -15,23 +16,51 @@ type BudgetStatusProps = {
   categories: Category[];
 };
 
-export function BudgetStatus({ budgets, transactions, categories }: BudgetStatusProps) {
+export function BudgetStatus({
+  budgets,
+  transactions,
+  categories,
+}: BudgetStatusProps) {
   const categoryMap = new Map(categories.map((cat) => [cat.id, cat]));
+  const currentMonth = format(new Date(), 'yyyy-MM');
 
-  const budgetData = budgets.map((budget) => {
-    const category = categoryMap.get(budget.categoryId);
-    const spent = transactions
-      .filter((t) => t.categoryId === budget.categoryId)
-      .reduce((sum, t) => sum + t.amount, 0);
-    const progress = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
-    return {
-      ...budget,
-      categoryName: category?.name || 'Unknown',
-      spent,
-      progress: Math.min(progress, 100), // Cap at 100%
-      isOver: progress > 100,
-    };
-  });
+  // 1. Filter budgets for the current month
+  const currentMonthBudgets = budgets.filter((b) => b.month === currentMonth);
+
+  // 2. Filter transactions for the current month
+  const currentMonthTransactions = transactions.filter(
+    (t) => format(t.date, 'yyyy-MM') === currentMonth
+  );
+
+  const budgetData = currentMonthBudgets
+    .map((budget) => {
+      const category = categoryMap.get(budget.categoryId);
+      // If category doesn't exist, skip it
+      if (!category) {
+        return null;
+      }
+
+      // 3. Sum expenses for this budget's category
+      const spent = currentMonthTransactions
+        .filter((t) => t.categoryId === budget.categoryId)
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      const progress = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
+
+      return {
+        ...budget,
+        categoryName: category.name,
+        spent,
+        progress: Math.min(progress, 100), // Cap at 100%
+        isOver: progress > 100,
+      };
+    })
+    .filter(Boolean) as (Budget & {
+    categoryName: string;
+    spent: number;
+    progress: number;
+    isOver: boolean;
+  })[];
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -46,7 +75,9 @@ export function BudgetStatus({ budgets, transactions, categories }: BudgetStatus
     <Card>
       <CardHeader>
         <CardTitle>Budget Status</CardTitle>
-        <CardDescription>Your spending progress for each category.</CardDescription>
+        <CardDescription>
+          Your spending progress for the current month.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {budgetData.length > 0 ? (
@@ -60,14 +91,20 @@ export function BudgetStatus({ budgets, transactions, categories }: BudgetStatus
                     budget.isOver && 'font-bold text-destructive'
                   )}
                 >
-                  {formatCurrency(budget.spent)} / {formatCurrency(budget.amount)}
+                  {formatCurrency(budget.spent)} /{' '}
+                  {formatCurrency(budget.amount)}
                 </span>
               </div>
-              <Progress value={budget.progress} className={cn(budget.isOver && '[&>div]:bg-destructive')} />
+              <Progress
+                value={budget.progress}
+                className={cn(budget.isOver && '[&>div]:bg-destructive')}
+              />
             </div>
           ))
         ) : (
-          <p className="text-center text-muted-foreground">No budgets set yet.</p>
+          <p className="text-center text-muted-foreground">
+            No budgets set for this month.
+          </p>
         )}
       </CardContent>
     </Card>

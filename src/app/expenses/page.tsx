@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Sidebar,
   SidebarContent,
@@ -29,8 +29,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { BudgetForm } from '@/components/budgets/budget-form';
-import { BudgetTable } from '@/components/budgets/budget-table';
+import { ExpenseForm } from '@/app/expenses/expense-form';
+import { ExpenseTable } from '@/app/expenses/expense-table';
 import {
   useUser,
   useFirestore,
@@ -38,18 +38,20 @@ import {
   useMemoFirebase,
   deleteDocumentNonBlocking,
 } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
-import type { Budget, Category } from '@/lib/types';
+import { collection, doc, query, orderBy, Timestamp } from 'firebase/firestore';
+import type { Transaction, Category } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
+import { AddExpenseForm } from '@/components/dashboard/add-expense-form';
 
-export default function BudgetsPage() {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+export default function ExpensesPage() {
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isAlertOpen, setIsAlertOpen] = useState(false);
-  const [selectedBudget, setSelectedBudget] = useState<Budget | undefined>(
+  const [selectedExpense, setSelectedExpense] = useState<Transaction | undefined>(
     undefined
   );
-  const [budgetToDelete, setBudgetToDelete] = useState<string | null>(null);
+  const [expenseToDelete, setExpenseToDelete] = useState<string | null>(null);
 
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
@@ -62,8 +64,8 @@ export default function BudgetsPage() {
     }
   }, [isUserLoading, user, router]);
 
-  const budgetsQuery = useMemoFirebase(
-    () => (user ? collection(firestore, 'users', user.uid, 'budgets') : null),
+  const expensesQuery = useMemoFirebase(
+    () => (user ? query(collection(firestore, 'users', user.uid, 'expenses'), orderBy('date', 'desc')) : null),
     [user, firestore]
   );
   const categoriesQuery = useMemoFirebase(
@@ -71,38 +73,44 @@ export default function BudgetsPage() {
     [user, firestore]
   );
 
-  const { data: budgets, isLoading: budgetsLoading } =
-    useCollection<Budget>(budgetsQuery);
+  const { data: expenses, isLoading: expensesLoading } =
+    useCollection<Transaction>(expensesQuery);
   const { data: categories, isLoading: categoriesLoading } =
     useCollection<Category>(categoriesQuery);
 
-  const isLoading = isUserLoading || budgetsLoading || categoriesLoading;
+  const processedExpenses = useMemo(() => {
+    return expenses?.map(t => ({
+      ...t,
+      date: (t.date as unknown as Timestamp).toDate(),
+    })) || [];
+  }, [expenses]);
 
-  const handleAddBudget = () => {
-    setSelectedBudget(undefined);
-    setIsDialogOpen(true);
+  const isLoading = isUserLoading || expensesLoading || categoriesLoading;
+
+  const handleAddExpense = () => {
+    setIsAddDialogOpen(true);
   };
 
-  const handleEditBudget = (budget: Budget) => {
-    setSelectedBudget(budget);
-    setIsDialogOpen(true);
+  const handleEditExpense = (expense: Transaction) => {
+    setSelectedExpense(expense);
+    setIsEditDialogOpen(true);
   };
 
-  const handleDeleteBudget = (budgetId: string) => {
-    setBudgetToDelete(budgetId);
+  const handleDeleteExpense = (expenseId: string) => {
+    setExpenseToDelete(expenseId);
     setIsAlertOpen(true);
   };
 
   const confirmDelete = () => {
-    if (!user || !budgetToDelete) return;
-    const budgetDocRef = doc(firestore, 'users', user.uid, 'budgets', budgetToDelete);
-    deleteDocumentNonBlocking(budgetDocRef);
+    if (!user || !expenseToDelete) return;
+    const expenseDocRef = doc(firestore, 'users', user.uid, 'expenses', expenseToDelete);
+    deleteDocumentNonBlocking(expenseDocRef);
     toast({
-      title: 'Budget Deleted',
-      description: 'Your budget has been successfully deleted.',
+      title: 'Expense Deleted',
+      description: 'Your expense has been successfully deleted.',
     });
     setIsAlertOpen(false);
-    setBudgetToDelete(null);
+    setExpenseToDelete(null);
   };
 
   if (isLoading || !user) {
@@ -130,34 +138,46 @@ export default function BudgetsPage() {
         <DashboardHeader categories={categories || []} />
         <main className="flex flex-1 flex-col gap-4 overflow-y-auto p-4 lg:gap-6 lg:p-6">
           <div className="flex items-center justify-between">
-            <h1 className="text-lg font-semibold md:text-2xl">Budgets</h1>
-            <Button size="sm" onClick={handleAddBudget}>
+            <h1 className="text-lg font-semibold md:text-2xl">Expenses</h1>
+            <Button size="sm" onClick={handleAddExpense}>
               <PlusCircle className="mr-2 h-4 w-4" />
-              <span>Add Budget</span>
+              <span>Add Expense</span>
             </Button>
           </div>
-          <BudgetTable
-            budgets={budgets || []}
+          <ExpenseTable
+            expenses={processedExpenses}
             categories={categories || []}
-            onEdit={handleEditBudget}
-            onDelete={handleDeleteBudget}
+            onEdit={handleEditExpense}
+            onDelete={handleDeleteExpense}
           />
         </main>
       </div>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>
-              {selectedBudget ? 'Edit Budget' : 'Add New Budget'}
-            </DialogTitle>
+            <DialogTitle>Add New Expense</DialogTitle>
             <DialogDescription>
-              {selectedBudget
-                ? "Update your budget's amount."
-                : 'Set a new budget for a category and month.'}
+              Enter the details of your expense. Click save when you're done.
             </DialogDescription>
           </DialogHeader>
-          <BudgetForm budget={selectedBudget} setOpen={setIsDialogOpen} />
+          <AddExpenseForm categories={categories || []} setOpen={setIsAddDialogOpen} />
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Expense</DialogTitle>
+            <DialogDescription>
+              Update the details of your expense.
+            </DialogDescription>
+          </DialogHeader>
+          <ExpenseForm 
+            expense={selectedExpense} 
+            categories={categories || []} 
+            setOpen={setIsEditDialogOpen} 
+          />
         </DialogContent>
       </Dialog>
 
@@ -167,7 +187,7 @@ export default function BudgetsPage() {
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete your
-              budget.
+              expense.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -1,6 +1,6 @@
 'use client';
 import { useEffect } from 'react';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useUser } from '@/firebase';
 import { collection, writeBatch, doc } from 'firebase/firestore';
 import type { Category } from '@/lib/types';
 import { categories } from '@/lib/data';
@@ -11,14 +11,21 @@ type CategorySeederProps = {
 
 export function CategorySeeder({ categories }: CategorySeederProps) {
   const firestore = useFirestore();
+  const { user } = useUser();
 
   useEffect(() => {
-    // Only seed if there are no categories in the database
-    if (categories.length === 0 && firestore) {
+    // Only seed if the user is loaded and has no categories
+    if (user && categories.length === 0 && firestore) {
       const seedCategories = async () => {
         try {
           const batch = writeBatch(firestore);
-          const categoriesColRef = collection(firestore, 'categories');
+          // Categories are now in a sub-collection under the user
+          const categoriesColRef = collection(
+            firestore,
+            'users',
+            user.uid,
+            'categories'
+          );
 
           categories.forEach((category) => {
             const docRef = doc(categoriesColRef, category.id);
@@ -26,15 +33,15 @@ export function CategorySeeder({ categories }: CategorySeederProps) {
           });
 
           await batch.commit();
-          console.log('Default categories have been seeded.');
+          console.log('Default categories have been seeded for the user.');
         } catch (error) {
-          console.error("Error seeding categories: ", error);
+          console.error('Error seeding categories: ', error);
         }
       };
 
       seedCategories();
     }
-  }, [categories, firestore]);
+  }, [categories, firestore, user]);
 
   // This component doesn't render anything visible
   return null;

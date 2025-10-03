@@ -13,37 +13,41 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { CalendarIcon, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
 import { DialogFooter } from '../ui/dialog';
-import type { Budget } from '@/lib/types';
+import type { Budget, Category } from '@/lib/types';
 import { useState, useEffect } from 'react';
-import { useUser, useFirestore } from '@/firebase';
+import {
+  useUser,
+  useFirestore,
+  useCollection,
+  useMemoFirebase,
+} from '@/firebase';
 import {
   addDocumentNonBlocking,
   setDocumentNonBlocking,
 } from '@/firebase/non-blocking-updates';
-import { collection, doc, Timestamp } from 'firebase/firestore';
+import { collection, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../ui/select';
+import { Loader2 } from 'lucide-react';
+import { format } from 'date-fns';
 
-const formSchema = z
-  .object({
-    name: z.string().min(2, 'Name must be at least 2 characters.'),
-    amount: z.coerce.number().positive('Amount must be a positive number.'),
-    startDate: z.date(),
-    endDate: z.date(),
-  })
-  .refine((data) => data.endDate > data.startDate, {
-    message: 'End date must be after start date',
-    path: ['endDate'],
-  });
+const formSchema = z.object({
+  categoryId: z.string().min(1, 'Please select a category.'),
+  amount: z.coerce.number().positive('Amount must be a positive number.'),
+  month: z
+    .string()
+    .regex(
+      /^\d{4}-\d{2}$/,
+      'Month must be in YYYY-MM format.'
+    ),
+});
 
 type BudgetFormProps = {
   budget?: Budget;
@@ -57,35 +61,31 @@ export function BudgetForm({ budget, setOpen }: BudgetFormProps) {
   const { toast } = useToast();
   const isEditMode = !!budget;
 
-  const toDate = (timestamp: Timestamp | Date | undefined): Date | undefined => {
-    if (timestamp instanceof Timestamp) {
-      return timestamp.toDate();
-    }
-    return timestamp;
-  };
+  const categoriesQuery = useMemoFirebase(
+    () => (user ? collection(firestore, 'users', user.uid, 'categories') : null),
+    [user, firestore]
+  );
+  const { data: categories, isLoading: categoriesLoading } =
+    useCollection<Category>(categoriesQuery);
+
+  const defaultMonth = format(new Date(), 'yyyy-MM');
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: budget?.name || '',
+      categoryId: budget?.categoryId || '',
       amount: budget?.amount || 0,
-      startDate: toDate(budget?.startDate) || new Date(),
-      endDate:
-        toDate(budget?.endDate) ||
-        new Date(new Date().setMonth(new Date().getMonth() + 1)),
+      month: budget?.month || defaultMonth,
     },
   });
 
   useEffect(() => {
     form.reset({
-      name: budget?.name || '',
+      categoryId: budget?.categoryId || '',
       amount: budget?.amount || 0,
-      startDate: toDate(budget?.startDate) || new Date(),
-      endDate:
-        toDate(budget?.endDate) ||
-        new Date(new Date().setMonth(new Date().getMonth() + 1)),
+      month: budget?.month || defaultMonth,
     });
-  }, [budget, form]);
+  }, [budget, form, defaultMonth]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!user) {
@@ -135,12 +135,50 @@ export function BudgetForm({ budget, setOpen }: BudgetFormProps) {
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <FormField
           control={form.control}
-          name="name"
+          name="categoryId"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Budget Name</FormLabel>
+              <FormLabel>Category</FormLabel>
+              <Select
+                onValueChange={field.onChange}
+                defaultValue={field.value}
+                disabled={isEditMode}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {categoriesLoading ? (
+                    <SelectItem value="loading" disabled>
+                      Loading...
+                    </SelectItem>
+                  ) : (
+                    categories?.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="month"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Month</FormLabel>
               <FormControl>
-                <Input placeholder="e.g., Monthly Budget" {...field} />
+                <Input
+                  type="month"
+                  {...field}
+                  disabled={isEditMode}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -155,82 +193,6 @@ export function BudgetForm({ budget, setOpen }: BudgetFormProps) {
               <FormControl>
                 <Input type="number" placeholder="50000.00" {...field} />
               </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="startDate"
-          render={({ field }) => (
-            <FormItem className="flex flex-col">
-              <FormLabel>Start Date</FormLabel>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <FormControl>
-                    <Button
-                      variant={'outline'}
-                      className={cn(
-                        'w-full pl-3 text-left font-normal',
-                        !field.value && 'text-muted-foreground'
-                      )}
-                    >
-                      {field.value ? (
-                        format(field.value, 'PPP')
-                      ) : (
-                        <span>Pick a date</span>
-                      )}
-                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                    </Button>
-                  </FormControl>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={field.value}
-                    onSelect={field.onChange}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="endDate"
-          render={({ field }) => (
-            <FormItem className="flex flex-col">
-              <FormLabel>End Date</FormLabel>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <FormControl>
-                    <Button
-                      variant={'outline'}
-                      className={cn(
-                        'w-full pl-3 text-left font-normal',
-                        !field.value && 'text-muted-foreground'
-                      )}
-                    >
-                      {field.value ? (
-                        format(field.value, 'PPP')
-                      ) : (
-                        <span>Pick a date</span>
-                      )}
-                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                    </Button>
-                  </FormControl>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={field.value}
-                    onSelect={field.onChange}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
               <FormMessage />
             </FormItem>
           )}

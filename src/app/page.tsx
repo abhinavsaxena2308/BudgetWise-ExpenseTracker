@@ -1,3 +1,4 @@
+
 'use client';
 import {
   Sidebar,
@@ -37,8 +38,8 @@ export default function DashboardPage() {
     [user, firestore]
   );
   const categoriesQuery = useMemoFirebase(() => 
-    firestore ? collection(firestore, 'categories') : null, 
-    [firestore]
+    user ? collection(firestore, 'users', user.uid, 'categories') : null, 
+    [user, firestore]
   );
 
   const { data: transactions, isLoading: transactionsLoading } = useCollection<Transaction>(transactionsQuery);
@@ -111,7 +112,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="grid h-screen w-full lg:grid-cols-[280px_1fr]">
+    <div className="grid min-h-screen w-full lg:grid-cols-[280px_1fr]">
       <CategorySeeder categories={categories || []} />
       <Sidebar>
         <SidebarHeader>

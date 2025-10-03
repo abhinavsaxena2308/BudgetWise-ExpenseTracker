@@ -17,9 +17,8 @@ export type Category = {
 
 export type Budget = {
   id: string;
-  name: string;
   amount: number;
-  startDate: Timestamp | Date;
-  endDate: Timestamp | Date;
+  month: string; // e.g., "2024-07"
   userId?: string;
+  categoryId: string;
 };
