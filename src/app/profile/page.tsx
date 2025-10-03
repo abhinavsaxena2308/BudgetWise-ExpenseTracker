@@ -50,7 +50,7 @@ export default function ProfilePage() {
 
   const handleLogout = async () => {
     await auth.signOut();
-    router.push('/login');
+    router.push('/');
   };
 
   const handleProfileUpdate = async (e: React.FormEvent) => {

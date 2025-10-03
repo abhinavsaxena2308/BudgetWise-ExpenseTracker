@@ -10,7 +10,7 @@ import {
 import { LayoutDashboard, Target, BarChart2, Settings, User, Receipt } from 'lucide-react';
 
 const links = [
-  { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/expenses', label: 'Expenses', icon: Receipt },
   { href: '/budgets', label: 'Budgets', icon: Target },
   { href: '/reports', label: 'Reports', icon: BarChart2 },

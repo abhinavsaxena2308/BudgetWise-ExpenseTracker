@@ -1,169 +1,57 @@
 
 'use client';
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarHeader,
-  SidebarFooter,
-} from '@/components/ui/sidebar';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
+import { Landmark, MoveRight } from 'lucide-react';
 import { Logo } from '@/components/logo';
-import { MainNav } from '@/components/main-nav';
-import { UserNav } from '@/components/user-nav';
-import { DashboardHeader } from '@/components/dashboard/header';
-import { Overview } from '@/components/dashboard/overview';
-import { SpendingChart } from '@/components/dashboard/spending-chart';
-import { CategoryChart } from '@/components/dashboard/category-chart';
-import { RecentTransactions } from '@/components/dashboard/recent-transactions';
-import { BudgetStatus } from '@/components/dashboard/budget-status';
-import { AiAdvisor } from '@/components/dashboard/ai-advisor';
-import { useUser, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { useRouter } from 'next/navigation';
-import { useEffect, useMemo } from 'react';
-import { Loader2 } from 'lucide-react';
-import { collection, query, orderBy, Timestamp } from 'firebase/firestore';
-import type { Transaction, Budget, Category } from '@/lib/types';
-import { CategorySeeder } from '@/components/dashboard/category-seeder';
 
-export default function DashboardPage() {
-  const { user, isUserLoading } = useUser();
-  const router = useRouter();
-  const firestore = useFirestore();
-
-  const transactionsQuery = useMemoFirebase(() => 
-    user ? query(collection(firestore, 'users', user.uid, 'expenses'), orderBy('date', 'desc')) : null,
-    [user, firestore]
-  );
-  const budgetsQuery = useMemoFirebase(() =>
-    user ? collection(firestore, 'users', user.uid, 'budgets') : null,
-    [user, firestore]
-  );
-  const categoriesQuery = useMemoFirebase(() => 
-    user ? collection(firestore, 'users', user.uid, 'categories') : null, 
-    [user, firestore]
-  );
-
-  const { data: transactions, isLoading: transactionsLoading } = useCollection<Transaction>(transactionsQuery);
-  const { data: budgets, isLoading: budgetsLoading } = useCollection<Budget>(budgetsQuery);
-  const { data: categories, isLoading: categoriesLoading } = useCollection<Category>(categoriesQuery);
-
-  // Convert Firestore Timestamps to JS Date objects
-  const processedTransactions = useMemo(() => {
-    return transactions?.map(t => ({
-      ...t,
-      date: (t.date as unknown as Timestamp).toDate(),
-    })) || [];
-  }, [transactions]);
-
-  useEffect(() => {
-    if (!isUserLoading && !user) {
-      router.push('/login');
-    }
-  }, [isUserLoading, user, router]);
-
-  const getSpendingData = (trans: Transaction[]) => {
-    if (!trans) return [];
-    const data: { date: string; spending: number | null }[] = [];
-    const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
-    const now = new Date();
-
-    for (let day = 1; day <= daysInMonth; day++) {
-        const date = new Date(now.getFullYear(), now.getMonth(), day);
-        const dailySpending = trans
-            .filter(t => t.date.getDate() === day && t.date.getMonth() === now.getMonth() && t.date.getFullYear() === now.getFullYear())
-            .reduce((sum, t) => sum + t.amount, 0);
-        
-        if (date > now) break;
-
-        data.push({
-            date: date.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }),
-            spending: dailySpending > 0 ? dailySpending : null,
-        });
-    }
-    return data;
-  };
-
-  const getCategorySpending = (trans: Transaction[], cats: Category[]) => {
-      if (!trans || !cats) return [];
-      const categorySpending = cats.map(category => {
-          const total = trans
-              .filter(t => t.categoryId === category.id)
-              .reduce((sum, t) => sum + t.amount, 0);
-          return {
-              name: category.name,
-              value: total,
-              fill: category.color,
-          };
-      }).filter(c => c.value > 0);
-      return categorySpending;
-  }
-
-  const spendingData = getSpendingData(processedTransactions);
-  const categorySpending = getCategorySpending(processedTransactions, categories || []);
-
-
-  const isLoading = isUserLoading || transactionsLoading || budgetsLoading || categoriesLoading;
-
-  if (isLoading || !user) {
-    return (
-      <div className="flex min-h-screen w-full items-center justify-center">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-      </div>
-    );
-  }
-
+export default function LandingPage() {
   return (
-    <div className="grid min-h-screen w-full lg:grid-cols-[280px_1fr]">
-      <CategorySeeder categories={categories || []} />
-      <Sidebar>
-        <SidebarHeader>
-          <Logo />
-        </SidebarHeader>
-        <SidebarContent>
-          <MainNav />
-        </SidebarContent>
-        <SidebarFooter>
-          <UserNav />
-        </SidebarFooter>
-      </Sidebar>
-      <div className="flex flex-col">
-        <DashboardHeader categories={categories || []} />
-        <main className="flex flex-1 flex-col gap-4 overflow-y-auto p-4 lg:gap-6 lg:p-6">
-          <Overview
-            transactions={processedTransactions || []}
-            budgets={budgets || []}
-          />
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-7">
-            <SpendingChart
-              className="lg:col-span-4"
-              data={spendingData}
-            />
-            <CategoryChart
-              className="lg:col-span-3"
-              data={categorySpending}
-              categories={categories || []}
-            />
-          </div>
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-7">
-            <RecentTransactions
-              className="lg:col-span-4"
-              transactions={processedTransactions || []}
-              categories={categories || []}
-            />
-            <div className="lg:col-span-3 flex flex-col gap-4">
-              <BudgetStatus
-                budgets={budgets || []}
-                transactions={processedTransactions || []}
-                categories={categories || []}
-              />
-              <AiAdvisor
-                budgets={budgets || []}
-                transactions={processedTransactions || []}
-                categories={categories || []}
-              />
+    <div className="flex flex-col min-h-screen">
+      <header className="px-4 lg:px-6 h-14 flex items-center">
+        <Logo />
+        <nav className="ml-auto flex gap-4 sm:gap-6">
+          
+          <Button asChild>
+            <Link href="/login">
+              Login <MoveRight className="ml-2 h-4 w-4" />
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link href="/login?signup=true">
+              Sign Up <MoveRight className="ml-2 h-4 w-4" />
+            </Link>
+          </Button>
+        </nav>
+      </header>
+      <main className="flex-1">
+        <section className="w-full py-12 md:py-24 lg:py-32 xl:py-48">
+          <div className="container px-4 md:px-6">
+            <div className="flex flex-col items-center space-y-4 text-center">
+              <div className="space-y-2">
+                <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl lg:text-6xl/none">
+                  Take Control of Your Finances
+                </h1>
+                <p className="mx-auto max-w-[700px] text-muted-foreground md:text-xl">
+                  BudgetWise is the simple, smart, and secure way to manage
+                  your personal budget, track expenses, and achieve your
+                  financial goals.
+                </p>
+              </div>
+              <div className="space-x-4">
+                <Button asChild size="lg">
+                  <Link href="/login?signup=true">Get Started for Free</Link>
+                </Button>
+              </div>
             </div>
           </div>
-        </main>
-      </div>
+        </section>
+      </main>
+      <footer className="flex flex-col gap-2 sm:flex-row w-full shrink-0 items-center px-4 md:px-6 border-t">
+        <p className="text-xs text-muted-foreground">
+          © {new Date().getFullYear()} BudgetWise. All rights reserved.
+        </p>
+      </footer>
     </div>
   );
 }
